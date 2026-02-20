@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CrowdStrike API Connector – Article</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Georgia, serif; background: #f5f5f5; padding: 30px; }
+
+  #toolbar {
+    position: fixed; top: 0; left: 0; right: 0;
+    background: #e00; color: white; padding: 12px 24px;
+    display: flex; align-items: center; gap: 16px; z-index: 999;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+  #toolbar button {
+    background: white; color: #c00; border: none;
+    padding: 8px 20px; border-radius: 4px; font-size: 15px;
+    font-weight: bold; cursor: pointer;
+  }
+  #toolbar button:hover { background: #ffe5e5; }
+  #status { font-size: 14px; opacity: 0.9; }
+
+  #article {
+    max-width: 740px; margin: 60px auto 40px;
+    background: white; padding: 48px 56px;
+    border-radius: 4px; box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    line-height: 1.8; color: #292929;
+  }
+  h1 { font-size: 40px; font-weight: 700; line-height: 1.2; margin-bottom: 24px; }
+  h2 { font-size: 26px; font-weight: 700; margin: 44px 0 16px; }
+  h3 { font-size: 20px; font-weight: 600; margin: 30px 0 10px; }
+  p { margin-bottom: 18px; font-size: 18px; }
+  blockquote {
+    border-left: 3px solid #e00; padding: 4px 0 4px 20px;
+    margin: 24px 0; font-style: italic; color: #555;
+    background: #fff8f8; border-radius: 0 4px 4px 0;
+  }
+  blockquote p { font-size: 16px; margin-bottom: 0; }
+  strong { font-weight: 700; }
+  em { font-style: italic; }
+  hr { border: none; border-top: 1px solid #e0e0e0; margin: 36px 0; }
+  ol, ul { padding-left: 24px; margin-bottom: 18px; }
+  li { font-size: 18px; margin-bottom: 8px; line-height: 1.6; }
+  a { color: #e00; }
+  .byline { color: #757575; font-size: 16px; margin-bottom: 32px; }
+  .tag { display: inline-block; background: #f0f0f0; color: #555;
+         font-size: 13px; font-family: sans-serif; padding: 3px 10px;
+         border-radius: 20px; margin: 2px; }
+
+  /* ── CrowdStrike UI Mockups ── */
+  .cs-screen {
+    background: #16181d;
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 32px 0;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+    font-family: 'Segoe UI', Arial, sans-serif;
+  }
+  .cs-titlebar {
+    background: #0d0f13;
+    padding: 8px 14px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    border-bottom: 1px solid #2a2d35;
+  }
+  .cs-dot { width: 11px; height: 11px; border-radius: 50%; }
+  .cs-dot.red { background: #ff5f57; }
+  .cs-dot.yellow { background: #febc2e; }
+  .cs-dot.green { background: #28c840; }
+  .cs-url {
+    flex: 1; background: #1e2128; border-radius: 4px;
+    padding: 4px 12px; color: #6b7280; font-size: 11px;
+    text-align: center;
+  }
+  .cs-body { padding: 0; }
+
+  /* Nav bar */
+  .cs-nav {
+    background: #0d0f13;
+    padding: 0 20px;
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid #2a2d35;
+  }
+  .cs-nav-item {
+    padding: 10px 18px;
+    font-size: 12px;
+    color: #9ca3af;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+  }
+  .cs-nav-item.active {
+    color: #ff3b3b;
+    border-bottom: 2px solid #ff3b3b;
+    font-weight: 600;
+  }
+  .cs-logo {
+    color: #ff3b3b;
+    font-weight: 800;
+    font-size: 13px;
+    letter-spacing: 1px;
+    margin-right: 24px;
+    padding: 10px 0;
+  }
+
+  /* Content area */
+  .cs-content { padding: 18px 22px; }
+  .cs-title-bar-inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .cs-section-title {
+    color: #e5e7eb;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+  .cs-badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 4px;
+    font-family: sans-serif;
+  }
+  .cs-badge.critical { background: #7f1d1d; color: #fca5a5; }
+  .cs-badge.high     { background: #7c2d12; color: #fdba74; }
+  .cs-badge.medium   { background: #78350f; color: #fde68a; }
+  .cs-badge.low      { background: #1e3a5f; color: #93c5fd; }
+  .cs-badge.ok       { background: #14532d; color: #86efac; }
+  .cs-badge.info     { background: #1e3a5f; color: #93c5fd; }
+
+  /* Table */
+  .cs-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .cs-table th {
+    background: #1e2128;
+    color: #6b7280;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.7px;
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid #2a2d35;
+  }
+  .cs-table td {
+    padding: 9px 12px;
+    color: #d1d5db;
+    border-bottom: 1px solid #1e2128;
+    vertical-align: middle;
+  }
+  .cs-table tr:hover td { background: #1e2128; }
+  .cs-table .host { color: #60a5fa; font-weight: 600; }
+  .cs-table .mono { font-family: monospace; color: #9ca3af; font-size: 11px; }
+  .cs-table .cve  { color: #f87171; font-family: monospace; font-size: 11px; }
+
+  /* Score ring */
+  .cvss-score {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    font-weight: 700; font-size: 12px;
+    border: 2px solid;
+  }
+  .cvss-crit { border-color: #ef4444; color: #ef4444; }
+  .cvss-high { border-color: #f97316; color: #f97316; }
+  .cvss-med  { border-color: #eab308; color: #eab308; }
+
+  /* Summary cards */
+  .cs-cards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+  .cs-card {
+    background: #1e2128;
+    border-radius: 6px;
+    padding: 12px 14px;
+    border: 1px solid #2a2d35;
+  }
+  .cs-card-label { color: #6b7280; font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px; }
+  .cs-card-value { color: #f3f4f6; font-size: 22px; font-weight: 700; }
+  .cs-card-value.red    { color: #ef4444; }
+  .cs-card-value.orange { color: #f97316; }
+  .cs-card-value.yellow { color: #eab308; }
+  .cs-card-value.green  { color: #22c55e; }
+  .cs-card-sub { color: #6b7280; font-size: 10px; margin-top: 3px; }
+
+  /* Detection item */
+  .cs-detect-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 12px 0;
+    border-bottom: 1px solid #1e2128;
+  }
+  .cs-detect-row:last-child { border-bottom: none; }
+  .cs-detect-icon {
+    width: 36px; height: 36px;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; flex-shrink: 0;
+  }
+  .cs-detect-icon.crit { background: #7f1d1d; }
+  .cs-detect-icon.high { background: #7c2d12; }
+  .cs-detect-icon.med  { background: #78350f; }
+  .cs-detect-main { flex: 1; }
+  .cs-detect-name { color: #e5e7eb; font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+  .cs-detect-meta { color: #6b7280; font-size: 11px; }
+  .cs-detect-meta span { margin-right: 12px; }
+  .cs-detect-tactic {
+    background: #1e2128;
+    border: 1px solid #2a2d35;
+    color: #9ca3af; font-size: 10px;
+    padding: 2px 8px; border-radius: 3px;
+    display: inline-block; margin-top: 4px;
+  }
+  .cs-detect-right { text-align: right; flex-shrink: 0; }
+  .cs-detect-time { color: #6b7280; font-size: 11px; margin-bottom: 6px; }
+
+  /* Recommendations */
+  .cs-rec-item {
+    display: flex;
+    gap: 14px;
+    padding: 11px 0;
+    border-bottom: 1px solid #1e2128;
+    align-items: flex-start;
+  }
+  .cs-rec-item:last-child { border-bottom: none; }
+  .cs-rec-num {
+    width: 24px; height: 24px; border-radius: 50%;
+    background: #e00; color: white;
+    font-size: 11px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 1px;
+  }
+  .cs-rec-text { color: #d1d5db; font-size: 12px; line-height: 1.6; flex: 1; }
+  .cs-rec-text strong { color: #f3f4f6; }
+  .cs-rec-action {
+    background: #e00; color: white;
+    font-size: 10px; font-weight: 700;
+    padding: 4px 12px; border-radius: 4px;
+    white-space: nowrap; flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  /* Anomaly chart bars */
+  .cs-anomaly-row {
+    display: flex; align-items: center;
+    gap: 10px; padding: 7px 0;
+    border-bottom: 1px solid #1e2128;
+  }
+  .cs-anomaly-row:last-child { border-bottom: none; }
+  .cs-anomaly-label { color: #9ca3af; font-size: 11px; width: 160px; flex-shrink: 0; }
+  .cs-anomaly-bar-wrap { flex: 1; background: #1e2128; border-radius: 3px; height: 8px; }
+  .cs-anomaly-bar { height: 8px; border-radius: 3px; }
+  .cs-anomaly-val { color: #d1d5db; font-size: 11px; width: 40px; text-align: right; flex-shrink: 0; }
+  .cs-anomaly-badge { flex-shrink: 0; }
+
+  /* Caption under screenshots */
+  .cs-caption {
+    text-align: center;
+    font-size: 14px;
+    color: #888;
+    font-style: italic;
+    margin-top: -20px;
+    margin-bottom: 28px;
+    font-family: sans-serif;
+  }
+
+  /* Connector diagram */
+  .cs-diagram {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 28px;
+    margin: 28px 0;
+    text-align: center;
+    font-family: sans-serif;
+  }
+  .cs-diagram-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 8px 0;
+  }
+  .cs-node {
+    background: white;
+    border: 1.5px solid #e00;
+    color: #292929;
+    border-radius: 6px;
+    padding: 8px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 1px 4px rgba(200,0,0,0.08);
+  }
+  .cs-node.center {
+    background: #e00; color: white;
+    border-color: #c00; font-size: 14px;
+    padding: 12px 24px;
+  }
+  .cs-arrow { color: #9ca3af; font-size: 20px; }
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <button onclick="copyArticle()">📋 Copy &amp; paste into Medium</button>
+  <span id="status">→ Then in Medium: New Story → Ctrl+V</span>
+</div>
+
+<div id="article">
+
+  <h1>CrowdStrike API Connector — Unlocking the Full Power of Falcon</h1>
+  <p class="byline"><strong>By Maximilian Hiermeier</strong> · February 2026</p>
+  <hr>
+
+  <p>CrowdStrike Falcon is one of the most powerful endpoint detection and response platforms on the market. It protects thousands of organizations globally — generating enormous amounts of security data in real time. But that data is only as valuable as what you do with it.</p>
+
+  <p>The <strong>CrowdStrike API Connector</strong> is a dedicated integration layer that bridges Falcon's REST API with your existing infrastructure stack: SIEMs, dashboards, ticketing systems, firewall platforms, and IT operations tools. It turns raw Falcon data into structured, normalized, and immediately actionable intelligence — surfaced exactly where your teams need it.</p>
+
+  <blockquote><p>The connector is part of a broader enterprise integration ecosystem alongside NinjaOne (RMM) and ntopng (network traffic analysis). Together they form a unified security data layer — correlating endpoint behavior, device management state, and network flow data through a single consistent interface.</p></blockquote>
+
+  <hr>
+
+  <h2>What the Connector Does</h2>
+
+  <p>Rather than forcing every system to implement its own Falcon API authentication, endpoint discovery, and data parsing, the connector provides a clean internal API that any downstream tool can call. It handles token management, response normalization, rate limiting, and caching transparently.</p>
+
+  <div class="cs-diagram">
+    <div style="font-size:12px;color:#888;margin-bottom:14px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Integration Architecture</div>
+    <div class="cs-diagram-row">
+      <div class="cs-node">CrowdStrike Falcon Cloud</div>
+    </div>
+    <div class="cs-diagram-row"><span class="cs-arrow">↕</span></div>
+    <div class="cs-diagram-row">
+      <div class="cs-node center">CrowdStrike API Connector</div>
+    </div>
+    <div class="cs-diagram-row"><span class="cs-arrow">↕</span></div>
+    <div class="cs-diagram-row">
+      <div class="cs-node">SIEM</div>
+      <div class="cs-node">Dashboards</div>
+      <div class="cs-node">SOAR / Ticketing</div>
+      <div class="cs-node">Firewall APIs</div>
+      <div class="cs-node">NinjaOne</div>
+    </div>
+  </div>
+
+  <p>Every downstream system gets the same data model, the same field names, and the same response structure — regardless of how Falcon structures it internally. This eliminates redundant integration work and ensures consistent behavior across the entire platform.</p>
+
+  <hr>
+
+  <h2>Vulnerable Devices — Know Your Exposure</h2>
+
+  <p>One of the most immediately useful capabilities is the <strong>Vulnerability Management view</strong>, powered by CrowdStrike Spotlight. The connector continuously pulls CVE data per host and makes it available in a normalized format: which device, which vulnerability, what CVSS score, whether an exploit is available in the wild.</p>
+
+  <p>This is not a periodic report. It is a live feed — the moment CrowdStrike identifies a new exposure on an enrolled host, that information is available downstream within seconds.</p>
+
+  <!-- SCREENSHOT: Vulnerable Devices -->
+  <div class="cs-screen">
+    <div class="cs-titlebar">
+      <div class="cs-dot red"></div>
+      <div class="cs-dot yellow"></div>
+      <div class="cs-dot green"></div>
+      <div class="cs-url">falcon.crowdstrike.com · Spotlight · Vulnerable Devices</div>
+    </div>
+    <div class="cs-nav">
+      <div class="cs-logo">FALCON</div>
+      <div class="cs-nav-item">Dashboard</div>
+      <div class="cs-nav-item active">Spotlight</div>
+      <div class="cs-nav-item">Detections</div>
+      <div class="cs-nav-item">Hosts</div>
+      <div class="cs-nav-item">Policies</div>
+    </div>
+    <div class="cs-body cs-content">
+      <div class="cs-cards">
+        <div class="cs-card">
+          <div class="cs-card-label">Critical CVEs</div>
+          <div class="cs-card-value red">34</div>
+          <div class="cs-card-sub">↑ 7 since yesterday</div>
+        </div>
+        <div class="cs-card">
+          <div class="cs-card-label">High CVEs</div>
+          <div class="cs-card-value orange">128</div>
+          <div class="cs-card-sub">Across 41 hosts</div>
+        </div>
+        <div class="cs-card">
+          <div class="cs-card-label">Exploits Available</div>
+          <div class="cs-card-value red">19</div>
+          <div class="cs-card-sub">Active in the wild</div>
+        </div>
+        <div class="cs-card">
+          <div class="cs-card-label">Patched (7d)</div>
+          <div class="cs-card-value green">52</div>
+          <div class="cs-card-sub">Remediation progress</div>
+        </div>
+      </div>
+      <div class="cs-title-bar-inner">
+        <div class="cs-section-title">Vulnerable Endpoints — Critical &amp; High</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <span style="color:#6b7280;font-size:11px;font-family:sans-serif;">Filter: Exploit Available</span>
+          <span class="cs-badge critical">EXPLOIT KNOWN</span>
+        </div>
+      </div>
+      <table class="cs-table">
+        <thead>
+          <tr>
+            <th>Host</th>
+            <th>IP Address</th>
+            <th>CVE</th>
+            <th>CVSS</th>
+            <th>Severity</th>
+            <th>Exploit</th>
+            <th>Last Seen</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="host">SUREDATA-DC01</td>
+            <td class="mono">10.0.10.5</td>
+            <td class="cve">CVE-2024-38063</td>
+            <td><span class="cvss-score cvss-crit">9.8</span></td>
+            <td><span class="cs-badge critical">CRITICAL</span></td>
+            <td><span class="cs-badge critical">YES</span></td>
+            <td class="mono">2m ago</td>
+          </tr>
+          <tr>
+            <td class="host">FINANCE-WS04</td>
+            <td class="mono">10.0.20.14</td>
+            <td class="cve">CVE-2024-21412</td>
+            <td><span class="cvss-score cvss-crit">9.1</span></td>
+            <td><span class="cs-badge critical">CRITICAL</span></td>
+            <td><span class="cs-badge critical">YES</span></td>
+            <td class="mono">8m ago</td>
+          </tr>
+          <tr>
+            <td class="host">SRV-EXCHANGE01</td>
+            <td class="mono">10.0.10.12</td>
+            <td class="cve">CVE-2024-30103</td>
+            <td><span class="cvss-score cvss-high">8.8</span></td>
+            <td><span class="cs-badge high">HIGH</span></td>
+            <td><span class="cs-badge critical">YES</span></td>
+            <td class="mono">14m ago</td>
+          </tr>
+          <tr>
+            <td class="host">DEV-LAPTOP-03</td>
+            <td class="mono">10.0.30.77</td>
+            <td class="cve">CVE-2024-38200</td>
+            <td><span class="cvss-score cvss-high">7.5</span></td>
+            <td><span class="cs-badge high">HIGH</span></td>
+            <td><span class="cs-badge medium">POC</span></td>
+            <td class="mono">1h ago</td>
+          </tr>
+          <tr>
+            <td class="host">HR-WORKSTATION-09</td>
+            <td class="mono">10.0.20.91</td>
+            <td class="cve">CVE-2024-26169</td>
+            <td><span class="cvss-score cvss-high">7.8</span></td>
+            <td><span class="cs-badge high">HIGH</span></td>
+            <td><span class="cs-badge high">YES</span></td>
+            <td class="mono">2h ago</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <p class="cs-caption">CrowdStrike Spotlight — live CVE exposure per endpoint, with CVSS score and exploit availability</p>
+
+  <p>What makes this particularly powerful when accessed via the connector is the ability to correlate vulnerability data with other sources: Is the vulnerable host currently generating anomalous network traffic in ntopng? Does NinjaOne show that the patch has been deployed but requires a reboot? These cross-system correlations are only possible when the data is normalized and accessible through a unified API layer.</p>
+
+  <hr>
+
+  <h2>Latest Detections — Real-Time Threat Visibility</h2>
+
+  <p>The Falcon platform generates detections continuously — mapping behavioral patterns to MITRE ATT&amp;CK tactics and techniques. Every process execution, file modification, network connection, and registry change on enrolled endpoints is analyzed in real time.</p>
+
+  <p>The connector surfaces this detection stream in a normalized format, enriched with host context, severity classification, and tactic mapping — ready for immediate consumption by SIEM platforms or automated response workflows.</p>
+
+  <!-- SCREENSHOT: Detections -->
+  <div class="cs-screen">
+    <div class="cs-titlebar">
+      <div class="cs-dot red"></div>
+      <div class="cs-dot yellow"></div>
+      <div class="cs-dot green"></div>
+      <div class="cs-url">falcon.crowdstrike.com · Detections · All Activity</div>
+    </div>
+    <div class="cs-nav">
+      <div class="cs-logo">FALCON</div>
+      <div class="cs-nav-item">Dashboard</div>
+      <div class="cs-nav-item">Spotlight</div>
+      <div class="cs-nav-item active">Detections</div>
+      <div class="cs-nav-item">Hosts</div>
+      <div class="cs-nav-item">Policies</div>
+    </div>
+    <div class="cs-body cs-content">
+      <div class="cs-cards">
+        <div class="cs-card">
+          <div class="cs-card-label">Last 24h</div>
+          <div class="cs-card-value">47</div>
+          <div class="cs-card-sub">Total detections</div>
+        </div>
+        <div class="cs-card">
+          <div class="cs-card-label">Critical</div>
+          <div class="cs-card-value red">3</div>
+          <div class="cs-card-sub">Immediate action</div>
+        </div>
+        <div class="cs-card">
+          <div class="cs-card-label">Unacknowledged</div>
+          <div class="cs-card-value orange">12</div>
+          <div class="cs-card-sub">Awaiting triage</div>
+        </div>
+        <div class="cs-card">
+          <div class="cs-card-label">Auto-Resolved</div>
+          <div class="cs-card-value green">29</div>
+          <div class="cs-card-sub">Prevention policy</div>
+        </div>
+      </div>
+      <div class="cs-title-bar-inner">
+        <div class="cs-section-title">Recent Detections</div>
+        <span style="color:#6b7280;font-size:11px;font-family:sans-serif;">Sorted by severity · Last 4 hours</span>
+      </div>
+
+      <div class="cs-detect-row">
+        <div class="cs-detect-icon crit">🛑</div>
+        <div class="cs-detect-main">
+          <div class="cs-detect-name">Credential Dumping via LSASS Memory Access</div>
+          <div class="cs-detect-meta">
+            <span class="host" style="color:#60a5fa;">SUREDATA-DC01</span>
+            <span class="mono" style="color:#9ca3af;font-size:11px;">10.0.10.5</span>
+            <span style="color:#9ca3af;">· mimikatz.exe</span>
+          </div>
+          <div class="cs-detect-tactic">MITRE ATT&amp;CK · T1003.001 · Credential Access</div>
+        </div>
+        <div class="cs-detect-right">
+          <div class="cs-detect-time">4 min ago</div>
+          <span class="cs-badge critical">CRITICAL</span>
+        </div>
+      </div>
+
+      <div class="cs-detect-row">
+        <div class="cs-detect-icon crit">⚠️</div>
+        <div class="cs-detect-main">
+          <div class="cs-detect-name">PowerShell Empire — Encoded Command Execution</div>
+          <div class="cs-detect-meta">
+            <span class="host" style="color:#60a5fa;">HR-WORKSTATION-09</span>
+            <span style="color:#9ca3af;">· powershell.exe</span>
+          </div>
+          <div class="cs-detect-tactic">MITRE ATT&amp;CK · T1059.001 · Execution</div>
+        </div>
+        <div class="cs-detect-right">
+          <div class="cs-detect-time">17 min ago</div>
+          <span class="cs-badge critical">CRITICAL</span>
+        </div>
+      </div>
+
+      <div class="cs-detect-row">
+        <div class="cs-detect-icon high">🔶</div>
+        <div class="cs-detect-main">
+          <div class="cs-detect-name">Lateral Movement — SMB Lateral Tool Transfer</div>
+          <div class="cs-detect-meta">
+            <span class="host" style="color:#60a5fa;">DEV-LAPTOP-03</span>
+            <span style="color:#9ca3af;">· svchost.exe (PID 4812)</span>
+          </div>
+          <div class="cs-detect-tactic">MITRE ATT&amp;CK · T1570 · Lateral Movement</div>
+        </div>
+        <div class="cs-detect-right">
+          <div class="cs-detect-time">41 min ago</div>
+          <span class="cs-badge high">HIGH</span>
+        </div>
+      </div>
+
+      <div class="cs-detect-row">
+        <div class="cs-detect-icon high">🔶</div>
+        <div class="cs-detect-main">
+          <div class="cs-detect-name">Suspicious Scheduled Task Created</div>
+          <div class="cs-detect-meta">
+            <span class="host" style="color:#60a5fa;">FINANCE-WS04</span>
+            <span style="color:#9ca3af;">· schtasks.exe</span>
+          </div>
+          <div class="cs-detect-tactic">MITRE ATT&amp;CK · T1053.005 · Persistence</div>
+        </div>
+        <div class="cs-detect-right">
+          <div class="cs-detect-time">1h 03m ago</div>
+          <span class="cs-badge high">HIGH</span>
+        </div>
+      </div>
+
+      <div class="cs-detect-row">
+        <div class="cs-detect-icon med">🔸</div>
+        <div class="cs-detect-main">
+          <div class="cs-detect-name">DNS Beaconing to Unknown External Host</div>
+          <div class="cs-detect-meta">
+            <span class="host" style="color:#60a5fa;">SRV-EXCHANGE01</span>
+            <span style="color:#9ca3af;">· dns-request → suspicious-cdn.io</span>
+          </div>
+          <div class="cs-detect-tactic">MITRE ATT&amp;CK · T1071.004 · C2</div>
+        </div>
+        <div class="cs-detect-right">
+          <div class="cs-detect-time">2h 18m ago</div>
+          <span class="cs-badge medium">MEDIUM</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  <p class="cs-caption">CrowdStrike Detections — real-time behavioral alerts with MITRE ATT&amp;CK context, ready for SIEM forwarding</p>
+
+  <p>The MITRE ATT&amp;CK mapping embedded in every detection is particularly valuable for downstream consumers. A SIEM that receives a normalized detection object already knows the tactic, technique, and procedure — it doesn't have to infer it. This dramatically accelerates analyst triage and enables more sophisticated correlation rules.</p>
+
+  <hr>
+
+  <h2>Recommendations — Prioritized Action Intelligence</h2>
+
+  <p>Raw data alone isn't enough. The Falcon platform generates <strong>prescriptive recommendations</strong> based on the current state of your environment: which policies are misconfigured, which hosts have gaps in coverage, which vulnerabilities should be addressed first given active exploits in the wild.</p>
+
+  <p>The connector makes these recommendations available programmatically — so they can appear in management dashboards, be assigned as tickets automatically, or drive scheduled remediation workflows.</p>
+
+  <!-- SCREENSHOT: Recommendations -->
+  <div class="cs-screen">
+    <div class="cs-titlebar">
+      <div class="cs-dot red"></div>
+      <div class="cs-dot yellow"></div>
+      <div class="cs-dot green"></div>
+      <div class="cs-url">falcon.crowdstrike.com · Security Health · Recommendations</div>
+    </div>
+    <div class="cs-nav">
+      <div class="cs-logo">FALCON</div>
+      <div class="cs-nav-item active">Recommendations</div>
+      <div class="cs-nav-item">Security Health</div>
+      <div class="cs-nav-item">Policy Gaps</div>
+    </div>
+    <div class="cs-body cs-content">
+      <div class="cs-title-bar-inner">
+        <div class="cs-section-title">Active Recommendations — Priority Order</div>
+        <span class="cs-badge critical">8 Critical Actions</span>
+      </div>
+
+      <div class="cs-rec-item">
+        <div class="cs-rec-num">1</div>
+        <div class="cs-rec-text">
+          <strong>Isolate SUREDATA-DC01 immediately.</strong> Active credential dumping tool detected. Host should be isolated and forensically investigated before re-joining the domain.
+        </div>
+        <div class="cs-rec-action">ISOLATE NOW</div>
+      </div>
+
+      <div class="cs-rec-item">
+        <div class="cs-rec-num">2</div>
+        <div class="cs-rec-text">
+          <strong>Apply KB5040442 on 23 unpatched Windows hosts.</strong> CVE-2024-38063 (CVSS 9.8) is actively exploited. No reboot required for this patch.
+        </div>
+        <div class="cs-rec-action">PATCH NOW</div>
+      </div>
+
+      <div class="cs-rec-item">
+        <div class="cs-rec-num">3</div>
+        <div class="cs-rec-text">
+          <strong>Enable Real-Time Response on 7 endpoints.</strong> Hosts in "FINANCE" group have RTR disabled — limiting containment capability in the event of an incident.
+        </div>
+        <div class="cs-rec-action">ENABLE</div>
+      </div>
+
+      <div class="cs-rec-item">
+        <div class="cs-rec-num">4</div>
+        <div class="cs-rec-text">
+          <strong>Tighten Prevention Policy for "DEV" group.</strong> Current policy allows unsigned script execution. Recommend switching to "Aggressive" mode for PowerShell.
+        </div>
+        <div class="cs-rec-action">REVIEW</div>
+      </div>
+
+      <div class="cs-rec-item">
+        <div class="cs-rec-num">5</div>
+        <div class="cs-rec-text">
+          <strong>3 hosts have not checked in for &gt; 14 days.</strong> Stale or decommissioned endpoints may retain active agent licenses. Verify or remove.
+        </div>
+        <div class="cs-rec-action">VERIFY</div>
+      </div>
+
+      <div class="cs-rec-item">
+        <div class="cs-rec-num">6</div>
+        <div class="cs-rec-text">
+          <strong>Sensor update available for 18 hosts.</strong> Version 7.11 contains critical detection engine improvements. Current version on affected hosts: 7.08.
+        </div>
+        <div class="cs-rec-action">UPDATE</div>
+      </div>
+
+    </div>
+  </div>
+  <p class="cs-caption">CrowdStrike Recommendations — prioritized security actions derived from live environment state</p>
+
+  <p>When recommendations are surfaced via the connector, they become part of an automated workflow. A recommendation to patch a critical CVE can automatically trigger a NinjaOne remediation task. An isolation recommendation can immediately invoke the Falcon Real-Time Response API to quarantine the host — without a human ever touching a console.</p>
+
+  <hr>
+
+  <h2>Anomalies — Behavioral Deviations at a Glance</h2>
+
+  <p>Beyond known attack patterns, Falcon's AI engine continuously monitors for <strong>behavioral anomalies</strong>: deviations from established baselines that may indicate early-stage compromise, insider threats, or novel attack techniques that don't yet match any known signature.</p>
+
+  <p>The connector normalizes these anomaly signals and makes them available as a scored, ranked feed — suitable for integration into risk dashboards or correlation engines.</p>
+
+  <!-- SCREENSHOT: Anomalies -->
+  <div class="cs-screen">
+    <div class="cs-titlebar">
+      <div class="cs-dot red"></div>
+      <div class="cs-dot yellow"></div>
+      <div class="cs-dot green"></div>
+      <div class="cs-url">falcon.crowdstrike.com · Behavioral Analysis · Anomalies</div>
+    </div>
+    <div class="cs-nav">
+      <div class="cs-logo">FALCON</div>
+      <div class="cs-nav-item">Dashboard</div>
+      <div class="cs-nav-item active">Behavioral Analysis</div>
+      <div class="cs-nav-item">Threat Graph</div>
+    </div>
+    <div class="cs-body cs-content">
+      <div class="cs-title-bar-inner">
+        <div class="cs-section-title">Behavioral Anomaly Signals — Last 24h</div>
+        <span style="color:#6b7280;font-size:11px;font-family:sans-serif;">AI Confidence Score &gt; 0.65</span>
+      </div>
+
+      <div class="cs-anomaly-row">
+        <div class="cs-anomaly-label">After-hours process activity</div>
+        <div class="cs-anomaly-bar-wrap">
+          <div class="cs-anomaly-bar" style="width:92%;background:#ef4444;"></div>
+        </div>
+        <div class="cs-anomaly-val" style="color:#ef4444;">92%</div>
+        <div class="cs-anomaly-badge"><span class="cs-badge critical">CRITICAL</span></div>
+      </div>
+
+      <div class="cs-anomaly-row">
+        <div class="cs-anomaly-label">Unusual parent-child process</div>
+        <div class="cs-anomaly-bar-wrap">
+          <div class="cs-anomaly-bar" style="width:87%;background:#f97316;"></div>
+        </div>
+        <div class="cs-anomaly-val" style="color:#f97316;">87%</div>
+        <div class="cs-anomaly-badge"><span class="cs-badge high">HIGH</span></div>
+      </div>
+
+      <div class="cs-anomaly-row">
+        <div class="cs-anomaly-label">Rare binary execution</div>
+        <div class="cs-anomaly-bar-wrap">
+          <div class="cs-anomaly-bar" style="width:81%;background:#f97316;"></div>
+        </div>
+        <div class="cs-anomaly-val" style="color:#f97316;">81%</div>
+        <div class="cs-anomaly-badge"><span class="cs-badge high">HIGH</span></div>
+      </div>
+
+      <div class="cs-anomaly-row">
+        <div class="cs-anomaly-label">Lateral auth spike (Kerberos)</div>
+        <div class="cs-anomaly-bar-wrap">
+          <div class="cs-anomaly-bar" style="width:76%;background:#eab308;"></div>
+        </div>
+        <div class="cs-anomaly-val" style="color:#eab308;">76%</div>
+        <div class="cs-anomaly-badge"><span class="cs-badge medium">MEDIUM</span></div>
+      </div>
+
+      <div class="cs-anomaly-row">
+        <div class="cs-anomaly-label">Network volume deviation</div>
+        <div class="cs-anomaly-bar-wrap">
+          <div class="cs-anomaly-bar" style="width:71%;background:#eab308;"></div>
+        </div>
+        <div class="cs-anomaly-val" style="color:#eab308;">71%</div>
+        <div class="cs-anomaly-badge"><span class="cs-badge medium">MEDIUM</span></div>
+      </div>
+
+      <div class="cs-anomaly-row">
+        <div class="cs-anomaly-label">Registry key modification spike</div>
+        <div class="cs-anomaly-bar-wrap">
+          <div class="cs-anomaly-bar" style="width:68%;background:#eab308;"></div>
+        </div>
+        <div class="cs-anomaly-val" style="color:#eab308;">68%</div>
+        <div class="cs-anomaly-badge"><span class="cs-badge medium">MEDIUM</span></div>
+      </div>
+
+      <div class="cs-anomaly-row">
+        <div class="cs-anomaly-label">User logon from new geolocation</div>
+        <div class="cs-anomaly-bar-wrap">
+          <div class="cs-anomaly-bar" style="width:65%;background:#3b82f6;"></div>
+        </div>
+        <div class="cs-anomaly-val" style="color:#3b82f6;">65%</div>
+        <div class="cs-anomaly-badge"><span class="cs-badge info">LOW</span></div>
+      </div>
+
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid #2a2d35;">
+        <div style="display:flex;gap:16px;align-items:center;">
+          <div style="color:#6b7280;font-size:11px;font-family:sans-serif;">Most affected host:</div>
+          <div style="color:#60a5fa;font-size:12px;font-family:sans-serif;font-weight:600;">SUREDATA-DC01</div>
+          <div style="color:#6b7280;font-size:11px;font-family:sans-serif;">Anomaly score:</div>
+          <div style="color:#ef4444;font-size:14px;font-family:sans-serif;font-weight:700;">94 / 100</div>
+          <span class="cs-badge critical" style="margin-left:auto;">INVESTIGATE</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  <p class="cs-caption">CrowdStrike Behavioral Analysis — AI-scored anomaly signals ranked by confidence and severity</p>
+
+  <p>Anomaly data is especially powerful when correlated across sources. A host showing elevated Kerberos authentication anomalies in Falcon, combined with unusual outbound traffic volumes in ntopng, forms a much higher-confidence signal than either indicator alone. The connector enables exactly this kind of cross-platform correlation in near real time.</p>
+
+  <hr>
+
+  <h2>What This Enables — The Bigger Picture</h2>
+
+  <p>The CrowdStrike API Connector is not just a data pipeline. It is the foundation for a genuinely integrated security operations capability:</p>
+
+  <ul>
+    <li><strong>Unified Security Dashboard</strong> — One view combining endpoint detections, vulnerability exposure, anomalies, and network behavior, pulling from CrowdStrike, ntopng, and NinjaOne simultaneously.</li>
+    <li><strong>Automated Incident Response</strong> — A new critical detection can trigger a chain of actions: host isolation via RTR, ticket creation in the ITSM system, Slack notification to the on-call analyst, and firewall block of the identified C2 IP — all without manual intervention.</li>
+    <li><strong>Firewall Intelligence Sync</strong> — Threat intelligence IOCs from CrowdStrike (malicious IPs, domains, file hashes) automatically propagate to pfSense or FortiGate blocklists via their respective APIs.</li>
+    <li><strong>Compliance &amp; Audit Reporting</strong> — Scheduled extraction of vulnerability posture, policy compliance state, and detection history — structured for audit requirements and executive reporting.</li>
+    <li><strong>Cross-Platform Risk Scoring</strong> — Each host in the environment receives a composite risk score derived from CVE exposure, active detections, anomaly signals, and patch state — updated continuously.</li>
+  </ul>
+
+  <hr>
+
+  <h2>Conclusion</h2>
+
+  <p>CrowdStrike Falcon is an exceptional security platform. But its value is maximized not when it operates in isolation, but when its data flows freely into every system that needs it — and when its response capabilities can be invoked automatically by any trigger in the environment.</p>
+
+  <p>The CrowdStrike API Connector makes that possible. It transforms Falcon from a standalone security tool into an integrated component of a broader security operations infrastructure — one where data flows, actions are automated, and response times are measured in seconds rather than hours.</p>
+
+  <blockquote><p>Security data that stays inside a single platform is security data that isn't working hard enough. The connector makes it work everywhere.</p></blockquote>
+
+  <hr>
+  <p style="font-size:15px;color:#757575;">
+    <em>By Maximilian Hiermeier · T3-Architect</em><br>
+    <span class="tag">#CrowdStrike</span>
+    <span class="tag">#Falcon</span>
+    <span class="tag">#EDR</span>
+    <span class="tag">#SecurityAutomation</span>
+    <span class="tag">#SIEM</span>
+    <span class="tag">#SOC</span>
+    <span class="tag">#ThreatIntelligence</span>
+    <span class="tag">#API</span>
+  </p>
+
+</div><!-- /article -->
+
+<script>
+function copyArticle() {
+  const el = document.getElementById('article');
+  const range = document.createRange();
+  range.selectNode(el);
+  window.getSelection().removeAllRanges();
+  window.getSelection().addRange(range);
+  try {
+    document.execCommand('copy');
+    document.getElementById('status').textContent = '✅ Copied! Now paste into Medium with Ctrl+V';
+    setTimeout(() => {
+      document.getElementById('status').textContent = '→ Then in Medium: New Story → Ctrl+V';
+    }, 4000);
+  } catch(e) {
+    document.getElementById('status').textContent = '❌ Copy failed — please select manually';
+  }
+  window.getSelection().removeAllRanges();
+}
+</script>
+</body>
+</html>
